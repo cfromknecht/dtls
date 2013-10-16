@@ -1,11 +1,9 @@
-package main
+package dtls
 
 import (
 	"net"
 	"log"
-	"io"
 	"io/ioutil"
-	"time"
 	"encoding/pem"
 	"crypto"
 	"crypto/x509"
@@ -16,93 +14,13 @@ import (
 )
 
 const (
-	port string = ":8080"
-)
-
-const (
-	maxUDPLength uint16 = 9216
-)
-
-type ClientAuthType int
-
-const (
-	NoClientCert ClientAuthType = iota
-	RequestClientCert
-	RequireAnyClientCert
-	VerifyClientCertIfGiven
-	RequireAndVerifyClientCert
+	Port string = ":8080"
 )
 
 type DTLSMultiplexedConn struct {
 	net.UDPConn
 	servers map[string]*DTLSConn
 	config *Config
-}
-
-type DTLSConn struct {
-	conn net.UDPConn
-	isClient bool
-	addr *net.UDPAddr
-	config *Config
-	msgIn chan []byte
-}
-
-type Config struct {
-	Rand io.Reader
-	Time func() time.Time
-	Certificates []Certificate
-	NameToCertificate map[string]*Certificate
-	RootCAs *x509.CertPool
-	NextProtos []string
-	ServerName string
-	ClientAuth ClientAuthType
-	ClientCAs *x509.CertPool
-	InsecureSkipVerify bool
-	CipherSuites []uint16
-	PreferServerCipherSuites bool
-	SessionTicketsDisabled bool
-	SessionTicketKey [32]byte
-	MinVersion uint16
-	MaxVersion uint16
-}
-
-type Certificate struct {
-	Certificate [][]byte
-	PrivateKey  crypto.PrivateKey
-	OCSPStaple []byte
-	Leaf *x509.Certificate
-}
-
-
-func main() {
-	cert, err := LoadX509KeyPair("certs/server.pem", "certs/server.key")
-    if err != nil {
-        log.Fatalf("server: loadkeys: %s", err)
-    }
-    config := Config{Certificates: []Certificate{cert}, InsecureSkipVerify: true}
-    
-	ln, err := Listen("udp", "127.0.0.1"+port, &config)
-	if err != nil {
-		return
-	}
-
-	ccert, err := LoadX509KeyPair("certs/client.pem", "certs/client.key")
-    if err != nil {
-        log.Fatalf("server: loadkeys: %s", err)
-    }
-    cconfig := Config{Certificates: []Certificate{ccert}, InsecureSkipVerify: true}
-
-	go dialAndWrite(&cconfig)
-	go dialAndWrite(&cconfig)
-
-	for {
-		_, err := ln.Accept()
-		if err != nil {
-			continue
-		}
-
-		// go handle conn
-	}
 }
 
 func Listen(network, addr string, config *Config) (c *DTLSMultiplexedConn, err error) {
@@ -205,8 +123,8 @@ func (c *DTLSConn) serve() {
 }
 
 // for testing
-func dialAndWrite(config *Config) {
-	conn, err := Dial("udp", "127.0.0.1"+port, config)
+func DialAndWrite(config *Config) {
+	conn, err := Dial("udp", "127.0.0.1"+Port, config)
 	if err != nil {
 		return
 	}
