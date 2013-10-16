@@ -70,11 +70,22 @@ func Dial(network, addr string, config *Config) (c *DTLSConn, err error) {
 }
 
 func Server(conn net.UDPConn, addr *net.UDPAddr, config *Config) *DTLSConn {
-	return &DTLSConn{conn: conn, addr: addr, config: config, msgIn: make(chan []byte, 64)}
+	return &DTLSConn{conn: conn,
+		addr:       addr,
+		config:     config,
+		msgIn:      make(chan []byte, 64),
+		nextRecord: make(chan []byte),
+	}
 }
 
 func Client(conn net.UDPConn, addr *net.UDPAddr, config *Config) *DTLSConn {
-	return &DTLSConn{conn: conn, addr: addr, config: config, msgIn: make(chan []byte, 64), isClient: true}
+	return &DTLSConn{conn: conn,
+		addr:       addr,
+		config:     config,
+		msgIn:      make(chan []byte, 64),
+		nextRecord: make(chan []byte),
+		isClient:   true,
+	}
 }
 
 type DTLSMultiplexedConn struct {

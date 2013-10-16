@@ -20,7 +20,7 @@ const (
 )
 
 const (
-	maxDatagramLength = 1479
+	maxDatagramLength = 1463
 	maxPlaintext      = 16384
 	maxCiphertext     = 16384 + 2048
 	recordHeaderLen   = 13

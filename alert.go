@@ -2,7 +2,7 @@ package dtls
 
 import "strconv"
 
-type alert byte
+type alert uint8
 
 const (
 	// alert level

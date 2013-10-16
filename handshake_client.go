@@ -50,7 +50,3 @@ NextCipherSuite:
 
 	return
 }
-
-func (c *DTLSConn) serverHandshake() (err error) {
-	return
-}
