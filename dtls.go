@@ -1,27 +1,20 @@
 package dtls
 
 import (
-	"net"
-	"log"
-	"io/ioutil"
-	"encoding/pem"
 	"crypto"
-	"crypto/x509"
-	"errors"
-	"strings"
-	"crypto/rsa"
 	"crypto/ecdsa"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
+	"io/ioutil"
+	"net"
+	"strings"
 )
 
 const (
 	Port string = ":8080"
 )
-
-type DTLSMultiplexedConn struct {
-	net.UDPConn
-	servers map[string]*DTLSConn
-	config *Config
-}
 
 func Listen(network, addr string, config *Config) (c *DTLSMultiplexedConn, err error) {
 	if config == nil || len(config.Certificates) == 0 {
@@ -38,40 +31,11 @@ func Listen(network, addr string, config *Config) (c *DTLSMultiplexedConn, err e
 		return
 	}
 	c = &DTLSMultiplexedConn{
-		UDPConn: *ln, 
+		UDPConn: *ln,
 		servers: make(map[string]*DTLSConn),
-		config: config,
+		config:  config,
 	}
 	return
-}
-
-func (conn *DTLSMultiplexedConn) Accept() (c *DTLSConn, err error) {
-	var b [maxUDPLength]byte
-	n, addr, err := conn.ReadFromUDP(b[0:])
-	if err != nil {
-		return
-	}
-
-	defer func(bb []byte) {
-		c.msgIn <- bb
-	}(b[0:n])
-
-	if c, ok := conn.servers[addr.String()]; ok {
-		return c, nil
-	}
-
-	c = Server(conn.UDPConn, addr, conn.config)
-	conn.servers[addr.String()] = c
-	go c.serve()
-	return c, nil
-}
-
-func Server(conn net.UDPConn, addr *net.UDPAddr, config *Config) *DTLSConn {
-	return &DTLSConn{conn: conn, addr: addr, config: config, msgIn: make(chan []byte, 64)}
-}
-
-func Client(conn net.UDPConn, addr *net.UDPAddr, config *Config) *DTLSConn {
-	return &DTLSConn{conn: conn, addr: addr, config: config, msgIn: make(chan []byte, 64), isClient: true}
 }
 
 func Dial(network, addr string, config *Config) (c *DTLSConn, err error) {
@@ -98,28 +62,50 @@ func Dial(network, addr string, config *Config) (c *DTLSConn, err error) {
 	}
 
 	c = Client(*conn, raddr, config)
-	// c = Client(*conn, raddr)
-	// if err = c.Handshake(); err != nil {
-	// 	conn.Close()
-	// 	return
-	// }
+	if err = c.Handshake(); err != nil {
+		conn.Close()
+		return
+	}
 	return
+}
+
+func Server(conn net.UDPConn, addr *net.UDPAddr, config *Config) *DTLSConn {
+	return &DTLSConn{conn: conn, addr: addr, config: config, msgIn: make(chan []byte, 64)}
+}
+
+func Client(conn net.UDPConn, addr *net.UDPAddr, config *Config) *DTLSConn {
+	return &DTLSConn{conn: conn, addr: addr, config: config, msgIn: make(chan []byte, 64), isClient: true}
+}
+
+type DTLSMultiplexedConn struct {
+	net.UDPConn
+	servers map[string]*DTLSConn
+	config  *Config
+}
+
+func (conn *DTLSMultiplexedConn) Accept() (c *DTLSConn, err error) {
+	var b [maxDatagramLength]byte
+	n, addr, err := conn.ReadFromUDP(b[0:])
+	if err != nil {
+		return
+	}
+
+	defer func(bb []byte) {
+		c.msgIn <- bb
+	}(b[0:n])
+
+	if c, ok := conn.servers[addr.String()]; ok {
+		return c, nil
+	}
+
+	c = Server(conn.UDPConn, addr, conn.config)
+	conn.servers[addr.String()] = c
+	go c.serve()
+	return c, nil
 }
 
 func defaultConfig() *Config {
 	return &Config{}
-}
-
-func (c *DTLSConn) Write(b []byte) (n int, err error) {
-	n, err = c.conn.Write(b)
-	return
-}
-
-func (c *DTLSConn) serve() {
-	for {
-		b := <- c.msgIn
-		log.Println("Addr:", c.addr.String(), "\tContents:", string(b))
-	}
 }
 
 // for testing
